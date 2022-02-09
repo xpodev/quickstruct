@@ -2,12 +2,12 @@ from .common import *
 from .quickstruct import *
 from .struct_builder import StructFlags
 
-__version__ = '0.1.2'
+__version__ = '0.1.3'
 
 
 __all__ = [
     '__version__',
-    
+
     'StructFlags',
     'DataStruct',
 
