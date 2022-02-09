@@ -235,7 +235,7 @@ class DataStruct(Type):
 
     @classmethod
     def __is_instance__(cls, instance) -> bool:
-        return isinstance(instance, cls)
+        return type.__instancecheck__(cls, instance)
 
     @classmethod
     def __class_str__(cls) -> str:
@@ -300,6 +300,7 @@ char = _primitive("char", "c", bytes)
 
 
 __all__ = [
-    "i8", "u8", "i16", "u16", "i32", "u32", "i64", "u64", "f32", "f64", "anyptr", "char",
-    "Array", "Pointer", "Reference", "DataStruct", "Padding", "ptr", "ref",
+    "i8", "u8", "i16", "u16", "i32", "u32", "i64", "u64", "f32", "f64", "String", 
+    "anyptr", "char", "ptr", "ref",
+    "Array", "Pointer", "Reference", "DataStruct", "Padding",
 ]
