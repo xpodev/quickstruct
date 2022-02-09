@@ -36,7 +36,7 @@ class Type(typing.Generic[U], metaclass=TypeMeta):
 
     @classmethod
     @abstractmethod
-    def from_bytes(cls: typing.Type[U], data: BytesIO) -> U:...
+    def from_bytes(cls: typing.Type[U], data: typing.Union[bytes, BytesIO]) -> U:...
 
     @classmethod
     @abstractmethod
@@ -55,7 +55,9 @@ class Primitive(Type, typing.Generic[T]):
         return cls.__struct__.pack(data)
 
     @classmethod
-    def from_bytes(cls, data: BytesIO) -> T:
+    def from_bytes(cls, data: typing.Union[bytes, BytesIO]) -> T:
+        if isinstance(data, bytes):
+            data = BytesIO(data)
         return cls.__struct__.unpack(data.read(cls.__struct__.size))[0]
 
     @classmethod
@@ -74,7 +76,9 @@ class Padding(Primitive[None]):
         return cls.__struct__.pack()
 
     @classmethod
-    def from_bytes(cls, data: BytesIO) -> T:
+    def from_bytes(cls, data: typing.Union[bytes, BytesIO]) -> T:
+        if isinstance(data, bytes):
+            data = BytesIO(data)
         return cls.__struct__.unpack(data.read(cls.__struct__.size))[0]
 
 
@@ -88,8 +92,10 @@ class String(Type):
         return cls.__struct__.pack(data.encode())
 
     @classmethod
-    def from_bytes(cls, data: BytesIO) -> str:
+    def from_bytes(cls, data: typing.Union[bytes, BytesIO]) -> str:
         length = cls.__length__
+        if isinstance(data, bytes):
+            data = BytesIO(data)
         if not length:
             length = unpack("i", data.read(4))[0]
         return data.read(length).decode()
@@ -127,8 +133,10 @@ class Array(Type, typing.Generic[T]):
         return result
 
     @classmethod
-    def from_bytes(cls, data: BytesIO) -> typing.List[T]:
+    def from_bytes(cls, data: typing.Union[bytes, BytesIO]) -> typing.List[T]:
         length = cls.__length__
+        if isinstance(data, bytes):
+            data = BytesIO(data)
         if not length:
             length = unpack("i", data.read(4))[0]
         return [cls.__element_type__.from_bytes(data) for _ in range(length)]
@@ -154,6 +162,8 @@ class Pointer(Primitive, typing.Generic[T]):
 
     @classmethod
     def from_bytes(cls, data) -> T:
+        if isinstance(data, bytes):
+            data = BytesIO(data)
         return cls.__element_type__.from_bytes(data)
 
     @classmethod
@@ -171,6 +181,8 @@ class Reference(Primitive, typing.Generic[T]):
 
     @classmethod
     def from_bytes(cls, data) -> T:
+        if isinstance(data, bytes):
+            data = BytesIO(data)
         return cls.__element_type__.from_bytes(data)
 
     @classmethod
@@ -204,8 +216,10 @@ class DataStruct(Type):
         cls.__slots__ = cls.__fields__.keys()
 
     @classmethod
-    def from_bytes(cls: typing.Type[T], data: BytesIO) -> T:
+    def from_bytes(cls: typing.Type[T], data: typing.Union[bytes, BytesIO]) -> T:
         result = cls()
+        if isinstance(data, bytes):
+            data = BytesIO(data)
         for field, ftype in cls.__fields__.items():
             value = ftype.from_bytes(data)
             setattr(result, field, value)
