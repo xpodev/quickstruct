@@ -1,226 +1,149 @@
-from abc import ABCMeta, abstractmethod
+from .common import *
+from .common import Padding
+from .struct_builder import FieldInfo, FixedStructBuilder, DynamicStructBuilder, IStructBuilder, StructFlags
+
 from io import BytesIO
 import pprint
-from struct import Struct, pack, unpack
 import typing
 
 
-U = typing.TypeVar('U')
+class StructField:
+    _type: typing.Type[Type]
+    _name: str
 
+    def __init__(self, typ: typing.Type[Type]) -> None:
+        self._type = typ
 
-class TypeMeta(ABCMeta):
-    def __repr__(self) -> str:
-        if hasattr(self, '__class_repr__'):
-            return self.__class_repr__()
-        if hasattr(self, '__class_str__'):
-            return self.__class_str__()
-        return self.__name__
-    
-    def __instancecheck__(cls, value) -> bool:
-        return cls.__is_instance__(value)
+    def __set_name__(self, owner, name):
+        self._name = f"<field>_{name}"
+        setattr(owner, name, self)
 
+    def __get__(self, instance, _):
+        if instance is None:
+            return self
+        return getattr(instance, self._name)
 
-class Type(typing.Generic[U], metaclass=TypeMeta):   
-    def __class_getitem__(cls: typing.Type[U], item) -> "typing.Type[Array[U]]":
-        if isinstance(item, int):
-            if issubclass(cls, Padding):
-                return type(f"Padding({item})", (cls,), {
-                    "__struct__": Struct(f"{item}x"),
-                })
-            return _array(cls, item)
-        return super().__class_getitem__(item)
-
-    @classmethod
-    @abstractmethod
-    def to_bytes(cls: typing.Type[U], data: U) -> bytes:...
-
-    @classmethod
-    @abstractmethod
-    def from_bytes(cls: typing.Type[U], data: typing.Union[bytes, BytesIO]) -> U:...
-
-    @classmethod
-    @abstractmethod
-    def __is_instance__(cls, instance) -> bool:...        
-
-
-T = typing.TypeVar('T', covariant=True, bound=Type)
-
-
-class Primitive(Type, typing.Generic[T]):
-    __struct__: Struct
-    __type__: typing.Type[T]
-    
-    @classmethod
-    def to_bytes(cls, data: T) -> bytes:
-        return cls.__struct__.pack(data)
-
-    @classmethod
-    def from_bytes(cls, data: typing.Union[bytes, BytesIO]) -> T:
-        if isinstance(data, bytes):
-            data = BytesIO(data)
-        return cls.__struct__.unpack(data.read(cls.__struct__.size))[0]
-
-    @classmethod
-    def __is_instance__(cls, instance) -> bool:
-        return isinstance(instance, cls.__type__)
-
-    def __str__(self) -> str:
-        return self.__class__.__name__
-
-
-class Padding(Primitive[None]):
-    __struct__: Struct = Struct("x")
-
-    @classmethod
-    def to_bytes(cls, _) -> bytes:
-        return cls.__struct__.pack()
-
-    @classmethod
-    def from_bytes(cls, data: typing.Union[bytes, BytesIO]) -> T:
-        if isinstance(data, bytes):
-            data = BytesIO(data)
-        return cls.__struct__.unpack(data.read(cls.__struct__.size))[0]
-
-
-class String(Type):
-    __length__: int = None
-
-    @classmethod
-    def to_bytes(cls, data: str) -> bytes:
-        if not cls.__length__:
-            return pack(f"i {len(data)}s", len(data), data.encode())
-        return cls.__struct__.pack(data.encode())
-
-    @classmethod
-    def from_bytes(cls, data: typing.Union[bytes, BytesIO]) -> str:
-        length = cls.__length__
-        if isinstance(data, bytes):
-            data = BytesIO(data)
-        if not length:
-            length = unpack("i", data.read(4))[0]
-        return data.read(length).decode()
-    
-    @classmethod
-    def __is_instance__(cls, instance) -> bool:
-        return isinstance(instance, str)
-
-    def __class_getitem__(cls, item: int) -> typing.Type["String"]:
-        if not isinstance(item, int):
-            raise TypeError(f"Expected an int, got {item}")
-        return type(f"{cls.__name__}[{item}]", (String,), {
-            '__length__': item,
-            '__struct__': Struct(str(item) + "s"),
-            })
-
-    @classmethod
-    def __class_str__(cls) -> str:
-        if not cls.__length__:
-            return "String"
-        return f"String[{cls.__length__}]"
-
-
-class Array(Type, typing.Generic[T]):
-    __element_type__: T
-    __length__: int = None
-
-    @classmethod
-    def to_bytes(cls, values: typing.Iterable[T]) -> bytes:
-        if cls.__length__ and len(values) != cls.__length__:
-            raise ValueError(f"Expected {cls.__length__} elements, got {len(values)}")
-        result = b"".join(cls.__element_type__.to_bytes(value) for value in values)
-        if not cls.__length__:
-            result = pack(f"i", len(values)) + result
-        return result
-
-    @classmethod
-    def from_bytes(cls, data: typing.Union[bytes, BytesIO]) -> typing.List[T]:
-        length = cls.__length__
-        if isinstance(data, bytes):
-            data = BytesIO(data)
-        if not length:
-            length = unpack("i", data.read(4))[0]
-        return [cls.__element_type__.from_bytes(data) for _ in range(length)]
-
-    @classmethod
-    def __is_instance__(cls, instance) -> bool:
-        return all(isinstance(value, cls.__element_type__) for value in instance)
-
-    def __class_getitem__(cls, item: typing.Type[T]) -> typing.Type["Array[T]"]:
-        return type(f"Array[{item.__name__}]", (Array,), {
-            '__element_type__': item,
-            '__length__': None,
-            })
-
-
-class Pointer(Primitive, typing.Generic[T]):
-    __element_type__: T
-    __struct__: Struct = Struct("P")
-    
-    @classmethod
-    def to_bytes(cls, value) -> bytes:
-        return cls.__struct__.pack(value)
-
-    @classmethod
-    def from_bytes(cls, data) -> T:
-        if isinstance(data, bytes):
-            data = BytesIO(data)
-        return cls.__element_type__.from_bytes(data)
-
-    @classmethod
-    def __str__(cls) -> str:
-        return f"{cls.__element_type__}*"
-
-
-class Reference(Primitive, typing.Generic[T]):
-    __element_type__: T
-    __struct__: Struct = Struct("P")
-    
-    @classmethod
-    def to_bytes(cls, value) -> bytes:
-        return cls.__struct__.pack(value)
-
-    @classmethod
-    def from_bytes(cls, data) -> T:
-        if isinstance(data, bytes):
-            data = BytesIO(data)
-        return cls.__element_type__.from_bytes(data)
-
-    @classmethod
-    def __str__(cls) -> str:
-        return f"{cls.__element_type__}&"
+    def __set__(self, instance, value):
+        if not isinstance(value, self._type):
+            raise TypeError(f"Expected {self._type}, got {type(value)}")
+        setattr(instance, self._name, value)
 
 
 class DataStruct(Type):
-    __fields__: typing.Dict[str, typing.Type[Type]] = {}
-    __num_paddings__: int
+    """Base type for all data structures."""
+
+    __s_fields__: typing.Dict[str, typing.Type[Type]]
+    __s_flags__: StructFlags = StructFlags.Default
+    __s_size__: int
+    __s_alignment__: int
 
     def __init__(self, **kwargs) -> None:
         super().__init__()
         try:
             for name, value in kwargs.items():
-                if not isinstance(value, self.__fields__[name]):
-                    raise TypeError(f"Expected {self.__fields__[name]}, got {type(value)}")
+                # if not isinstance(value, self.__fields__[name]):
+                #     raise TypeError(f"Expected {self.__fields__[name]}, got {type(value)}")
                 setattr(self, name, value)
         except KeyError:
             raise TypeError(f"Unknown field {name}")
 
-    def __init_subclass__(cls):
-        cls.__fields__ = {}
-        for base in cls.__bases__:
-            if not issubclass(base, Type): continue
-            cls.__fields__.update(base.__fields__)
+    def __init_subclass__(cls, flags: StructFlags = StructFlags.Default):
+        if any(map(lambda base: issubclass(base, DataStruct) and base.__s_flags__ & StructFlags.Final, cls.__bases__)):
+            raise TypeError("Cannot inherit from a final struct")
+        builder: IStructBuilder
+        if flags & StructFlags.ForceFixedSize:
+            builder = FixedStructBuilder(flags)
+        else:
+            builder = DynamicStructBuilder(flags)        
+        if flags & StructFlags.ForceFixedSize:
+            if flags & StructFlags.ReorderFields:
+                builder.reorder_fields()
+            if not flags & StructFlags.NoAlignment:
+                builder.align_fields()
+        
+        potential_fields: typing.List[FieldInfo] = []
+
+        if flags & StructFlags.ForceDataOnly:
+            if any(map(lambda base: not issubclass(base, DataStruct) or not base.__s_flags__ & StructFlags.ForceDataOnly, cls.__bases__)):
+                raise TypeError(f"{cls.__name__} is marked as data-only but it inherits non-data-only struct.")
+
+        paddings = 0
+        for i, base in enumerate(cls.__bases__):
+            if not issubclass(base, DataStruct) or base is DataStruct: continue
+            if base.__s_flags__ & StructFlags.AllowInline:
+                for name, typ in base.__s_fields__.items():
+                    if issubclass(typ, Padding):
+                        name = f"<padding>_{paddings}"
+                        paddings += 1
+                    potential_fields.append(FieldInfo(name, typ))
+            else:
+                potential_fields.append(FieldInfo(f"<base>_{i}", base))
+        
+        non_data_fields = []
+        
         for name, typ in cls.__annotations__.items():
-            if not issubclass(typ, Type):
-                raise TypeError(f"{name} in {cls} is not a Type")
-            cls.__fields__[name] = typ
-        cls.__slots__ = cls.__fields__.keys()
+            if name.startswith('__') and name.endswith('__'): continue
+            if issubclass(typ, DataStruct):
+                if not typ.__s_flags__ & StructFlags.ForceDataOnly:
+                    non_data_fields.append(name)
+            if issubclass(typ, Type):
+                potential_fields.append(FieldInfo(name, typ))
+            else:
+                non_data_fields.append(name)
+
+        # for name, value in vars(cls).items():
+        #     if name.startswith('__') and name.endswith('__'): continue
+        #     typ = type(value)
+        #     if issubclass(typ, DataStruct):
+        #         if not typ.__s_flags__ & StructFlags.ForceDataOnly:
+        #             non_data_fields.append(name)
+        #     if issubclass(typ, Type):
+        #         potential_fields.append(FieldInfo(name, type(value)))
+        #     else:
+        #         non_data_fields.append(name)
+
+        if flags & StructFlags.ForceDataOnly and non_data_fields:
+            raise TypeError(f"{cls.__name__} is marked as data-only but it contains non-data-only fields: {non_data_fields}.")
+        
+        for field in potential_fields:
+            builder.add_field(field, allow_overwrite=flags & StructFlags.AllowOverride, force_safe_overwrite=flags & StructFlags.ForceSafeOverride)
+
+        fields = builder.build()
+        if builder.size != -1:
+            builder = FixedStructBuilder(flags)
+            for field in fields.values():
+                builder.add_field(field, allow_overwrite=flags & StructFlags.AllowOverride, force_safe_overwrite=flags & StructFlags.ForceSafeOverride)
+            if flags & StructFlags.ReorderFields:
+                builder.reorder_fields()
+            if not flags & StructFlags.NoAlignment:
+                builder.align_fields()
+        fields = builder.build()
+
+        for name, field in fields.items():
+            value = getattr(cls, name, None)
+            StructField(field.type).__set_name__(cls, name)
+            if value is not None:
+                setattr(cls, name, value)
+        cls.__s_fields__ = {name: field.type for name, field in fields.items()}
+        cls.__s_flags__ = flags
+        cls.__s_size__ = builder.size
+        cls.__s_alignment__ = 0
+        cls.__slots__ = fields.keys()
 
     @classmethod
-    def from_bytes(cls: typing.Type[T], data: typing.Union[bytes, BytesIO]) -> T:
+    def size(cls):
+        cls.__s_size__
+
+    @classmethod
+    def alignment(cls) -> int:
+        return cls.__s_alignment__
+
+    @classmethod
+    def from_bytes(cls: typing.Union[typing.Type[T], "DataStruct"], data: typing.Union[bytes, BytesIO]) -> T:
         result = cls()
         if isinstance(data, bytes):
             data = BytesIO(data)
-        for field, ftype in cls.__fields__.items():
+        for field, ftype in cls.__s_fields__.items():
             value = ftype.from_bytes(data)
             setattr(result, field, value)
         return result
@@ -228,7 +151,7 @@ class DataStruct(Type):
     def to_bytes(self) -> bytes:
         try:
             return b"".join(
-                typ.to_bytes(getattr(self, field, None)) for field, typ in self.__fields__.items()
+                typ.to_bytes(getattr(self, field, None)) for field, typ in self.__s_fields__.items()
                 )
         except AttributeError:
             raise ValueError(f"One of the fields is not initialized") from None
@@ -239,68 +162,18 @@ class DataStruct(Type):
 
     @classmethod
     def __class_str__(cls) -> str:
-        if not cls.__fields__:
+        if not cls.__s_fields__:
             return "{}"
-        return pprint.pformat(cls.__fields__)
+        return pprint.pformat(cls.__s_fields__)
 
     def __repr__(self) -> str:
-        if not self.__fields__:
+        if not self.__s_fields__:
             return "{}"
         return pprint.pformat({
-            field: getattr(self, field, None) for field in self.__fields__
+            field: getattr(self, field, None) for field in self.__s_fields__
         })
-
-
-def _array(element_type: typing.Type[T], length: int) -> typing.Type[Array[T]]:
-    return type(f"{element_type.__name__}[{length}]", (Array,), {
-        '__element_type__': element_type,
-        '__length__': length,
-    })
-
-
-def _pointer(element_type: typing.Type[T]) -> typing.Type[Pointer[T]]:
-    return type(f"{element_type.__name__}*", (Pointer,), {'__element_type__': element_type})
-
-
-def _primitive(name: str, fmt: str, typ: typing.Type[T]) -> typing.Type[Primitive[T]]:
-    return type(name, (Primitive,), {
-        '__struct__': Struct(fmt), 
-        '__type__': typ
-        })
-
-
-def _reference(element_type: typing.Type[T]) -> typing.Type[Reference[T]]:
-    return type(f"{element_type.__name__}&", (Reference,), {'__element_type__': element_type})
-
-
-class TypeModifier(typing.Generic[T]):
-    def __init__(self, func) -> None:
-        self._func = func
-
-    def __getitem__(self, item):
-        return self._func(item)
-
-
-ptr = TypeModifier[Pointer](_pointer)
-ref = TypeModifier[Reference](_reference)
-
-
-i8 = _primitive("i8", "b", int)
-u8 = _primitive("u8", "B", int)
-i16 = _primitive("i16", "h", int)
-u16 = _primitive("u16", "H", int)
-i32 = _primitive("i32", "i", int)
-u32 = _primitive("u32", "I", int)
-i64 = _primitive("i64", "q", int)
-u64 = _primitive("u64", "Q", int)
-f32 = _primitive("f32", "f", float)
-f64 = _primitive("f64", "d", float)
-anyptr = _primitive("anyptr", "P", int)
-char = _primitive("char", "c", bytes)
 
 
 __all__ = [
-    "i8", "u8", "i16", "u16", "i32", "u32", "i64", "u64", "f32", "f64", "String", 
-    "anyptr", "char", "ptr", "ref",
-    "Array", "Pointer", "Reference", "DataStruct", "Padding",
+    "DataStruct"
 ]
