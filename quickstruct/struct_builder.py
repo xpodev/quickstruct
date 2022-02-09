@@ -15,7 +15,9 @@ class StructFlags(IntFlag):
     """Specifies the struct should be aligned to 4 bytes."""
     Align8Bytes = 1 << 2
     """Specifies the struct should be aligned to 8 bytes."""
-    NoAlignment = 1 << 3
+    AlignAuto = 1 << 3
+    """Specifies the alignment should be automatically determined by the field types."""
+    NoAlignment = 1 << 4
     """Specifies the struct should not be aligned."""
     ReorderFields = 1 << 5
     """If set, the fields will be reordered to fill the gaps in the struct. Reordering implies alignment."""
@@ -27,8 +29,6 @@ class StructFlags(IntFlag):
     """If set, the struct may only define fields that are defined in the base struct with the same type."""
     ForceFixedSize = 1 << 11
     """If set, the struct will be forced to have a fixed size. If a fixed size could not be determined, an exception will be raised."""
-    ForceAlignment = 1 << 12
-    """If set, the struct will be forced to have a fixed alignment. Otherwise, the alignment will be determined by the field types."""
     AllowInline = 1 << 13
     """If set, the struct may be unpacked into another struct."""
     LockedStructure = 1 << 14
@@ -38,7 +38,7 @@ class StructFlags(IntFlag):
 
     AlignmentMask = Align1Byte | Align2Bytes | Align4Bytes | Align8Bytes
     """The mask for the alignment power."""
-    Default = AllowOverride | Packed | ForceDataOnly | AllowInline
+    Default = AllowOverride | AlignAuto | ForceDataOnly | AllowInline
     """The default flags for a struct. This is equivalent to AllowOverride | Packed | ForceDataOnly | AllowInline."""
 
 
@@ -146,7 +146,8 @@ class FixedStructBuilder(IStructBuilder):
     def __init__(self, flags: StructFlags = StructFlags.Default) -> None:
         self._fields = {}
         self._size = 0
-        self._alignment = 1 << (flags & StructFlags.AlignmentMask) if flags & StructFlags.ForceAlignment else 0
+        self._alignment = 1 << (flags & StructFlags.AlignmentMask) if not flags & StructFlags.AlignAuto else 0
+        self._flags = flags
 
     def add_field(self, field: FieldInfo, typ: typing.Type[Type] = None, allow_overwrite: bool = True, force_safe_overwrite: bool = True) -> None:
         if isinstance(field, str):
