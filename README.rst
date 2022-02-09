@@ -49,11 +49,5 @@ The main use for C structs is to convert them from bytes and back::
     person = Person.from_bytes(data)
 
 
-When deserializing, the deserialization must be done through the exact
-type of the struct, not just the base type.
-This code might result with invalid data::
-
-    employee = Employee(name="John Doe", age=42, salary=123)
-    person = Person.from_bytes(data)
-    # person might contain invalid data
-
+When deserializing a struct with multiple bases or if one of the fields was overriden, 
+the deserialization must be done through the exact type of the struct.

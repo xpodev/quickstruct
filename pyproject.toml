@@ -3,7 +3,8 @@ name = "quickstruct"
 version = "0.1.1"
 description = "A small library to ease the creation, usage, serialization and deserialization of C structs."
 authors = ["Binyamin Y Cohen <binyamincohen555@gmail.com>"]
-repository = ""
+repository = "https://github.com/xpodev/quickstruct"
+readme = "README.rst"
 
 [tool.poetry.dependencies]
 python = "^3.8"
