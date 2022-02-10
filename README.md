@@ -31,24 +31,24 @@ class Employee(Person):
 
 Now let's use the structs we defined
 ```py
-    # We have 2 options when initializing.
-    # Either by setting each attribute individually
-    person = Person()
-    person.name = "John Doe"
-    person.age = 42
+# We have 2 options when initializing.
+# Either by setting each attribute individually
+person = Person()
+person.name = "John Doe"
+person.age = 42
 
-    # Or by passing them as keyword arguments
-    person = Person(name="John Doe", age=42)
+# Or by passing them as keyword arguments
+person = Person(name="John Doe", age=42)
 ```
 
 
 The main use for C structs is to convert them from bytes and back
 ```py
-    data = person.to_bytes()
-    # Do something with the data
-    
-    # And it's also easy to deserialize
-    person = Person.from_bytes(data)
+data = person.to_bytes()
+# Do something with the data
+
+# And it's also easy to deserialize
+person = Person.from_bytes(data)
 ```
 
 
