@@ -2,7 +2,7 @@ from .common import *
 from .quickstruct import *
 from .struct_builder import StructFlags
 
-__version__ = '0.1.3'
+__version__ = '0.1.4'
 
 
 __all__ = [
