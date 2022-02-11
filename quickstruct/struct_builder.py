@@ -3,7 +3,7 @@ from enum import IntFlag
 import typing
 from .common import Primitive, Type, Padding
 
-from typing import Dict, List, Union
+from typing import Dict, List
 
 
 class StructFlags(IntFlag):
