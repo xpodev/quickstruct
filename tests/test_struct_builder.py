@@ -271,3 +271,13 @@ def test_aligned_on_8bytes2():
     assert fields["e_column"].offset == 24
 
     assert struct.size == 28
+
+
+def test_align_empty_struct():
+    struct = FixedStructBuilder()
+
+    struct.align_fields()
+
+    fields = struct.build()
+
+    assert struct.size == 0
