@@ -192,7 +192,7 @@ class FixedStructBuilder(IStructBuilder):
                 result.append(field)
         self._size = offset
         self._fields = {field.name: field for field in result}
-        if self._size % largest_field != 0:
+        if self._size and self._size % largest_field != 0:
             self._size += largest_field - (self._size % largest_field)
 
     def reorder_fields(self) -> None:
