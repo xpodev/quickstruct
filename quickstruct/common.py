@@ -17,32 +17,44 @@ class TypeMeta(ABCMeta):
     def __instancecheck__(cls, value) -> bool:
         return cls.__is_instance__(value)
 
+    @property
+    def is_dynamic_size(self) -> bool:
+        return self._is_dynamic_size()
+
+    @property
+    def alignment(self) -> int:
+        return self._alignment()
+
+    @property
+    def size(self) -> int:
+        return self._size()
+
 
 class Type(typing.Generic[U], metaclass=TypeMeta):   
     def __class_getitem__(cls: typing.Type[U], item) -> "typing.Type[Array[U]]":
         if isinstance(item, int):
             if issubclass(cls, Padding):
-                return type(f"Padding({item})", (cls,), {
+                return type(f"Padding[{item}]", (cls,), {
                     "__struct__": Struct(f"{item}x"),
                 })
             return _array(cls, item)
         return super().__class_getitem__(item)
 
     @classmethod
-    def is_dynamic_size(cls) -> bool:
-        return cls.size() == -1
+    def _is_dynamic_size(cls) -> bool:
+        return cls.size == -1
 
     @classmethod
-    @abstractmethod
-    def alignment(cls) -> int:
+    # @abstractmethod
+    def _alignment(cls) -> int:
         """Returns the alignment of the type."""
-        pass
+        raise NotImplementedError
 
     @classmethod
-    @abstractmethod
-    def size(cls) -> int:
+    # @abstractmethod
+    def _size(cls) -> int:
         """The size of the type in bytes. If the type doesn't have a fixed size, -1 is returned."""
-        raise NotImplementedError()
+        raise NotImplementedError
 
     @classmethod
     @abstractmethod
@@ -60,6 +72,7 @@ class Type(typing.Generic[U], metaclass=TypeMeta):
         """Checks if the given instance is an instance of this type."""
         return type.__instancecheck__(cls, instance)
 
+
 T = typing.TypeVar('T', covariant=True, bound=Type)
 
 
@@ -69,11 +82,11 @@ class Primitive(Type, typing.Generic[T]):
     __alignment__: int
     
     @classmethod
-    def size(cls) -> int:
+    def _size(cls) -> int:
         return cls.__struct__.size
 
     @classmethod
-    def alignment(cls) -> int:
+    def _alignment(cls) -> int:
         return cls.__alignment__
 
     @classmethod
@@ -106,7 +119,7 @@ class Padding(Primitive[None]):
     def from_bytes(cls, data: typing.Union[bytes, BytesIO]) -> T:
         if isinstance(data, bytes):
             data = BytesIO(data)
-        return cls.__struct__.unpack(data.read(cls.__struct__.size))[0]
+        cls.__struct__.unpack(data.read(cls.__struct__.size))
 
 
 class String(Type):
@@ -114,11 +127,11 @@ class String(Type):
     __alignment__: int = 1
 
     @classmethod
-    def size(cls) -> int:
+    def _size(cls) -> int:
         return cls.__length__ if cls.__length__ else -1
 
     @classmethod
-    def alignment(cls) -> int:
+    def _alignment(cls) -> int:
         return cls.__alignment__
 
     @classmethod
@@ -156,16 +169,16 @@ class String(Type):
 
 
 class Array(Type, typing.Generic[T]):
-    __element_type__: T
+    __element_type__: typing.Type[T]
     __length__: int = None
 
     @classmethod
-    def size(cls) -> int:
-        return cls.__length__ if cls.__length__ else -1
+    def _size(cls) -> int:
+        return cls.__length__ * cls.__element_type__.size if cls.__length__ else -1
 
     @classmethod
-    def alignment(cls) -> int:
-        return cls.__element_type__.alignment()
+    def _alignment(cls) -> int:
+        return cls.__element_type__.alignment
 
     @classmethod
     def to_bytes(cls, values: typing.Iterable[T]) -> bytes:
@@ -286,8 +299,7 @@ char = _primitive("char", "c", bytes, 1)
 
 
 __all__ = [
-    "Type", "Primitive", "String", "Array", "Pointer", "Reference",
+    "Type", "Primitive", "String", "Array", "Pointer", "Reference", "Padding", "Array",
     "i8", "u8", "i16", "u16", "i32", "u32", "i64", "u64", "f32", "f64", "anyptr", "char",
-    "ptr", "ref",
-    "T"
+    "ptr", "ref"
 ]

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "quickstruct"
-version = "0.1.4"
+version = "0.2.0"
 description = "A small library to ease the creation, usage, serialization and deserialization of C structs."
 authors = ["Binyamin Y Cohen <binyamincohen555@gmail.com>"]
 repository = "https://github.com/xpodev/quickstruct"
