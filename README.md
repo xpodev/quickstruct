@@ -57,7 +57,7 @@ the deserialization must be done through the exact type of the struct.
 
 
 # Fixed Size Structs
-A fixed size struct is any struct that has a known fixed time that doesn't depend on the 
+A fixed size struct is any struct that has a known fixed size at build time that doesn't depend on the 
 data it holds. QuickStruct can verify a struct has a fixed size.
 ```py
 # The StructFlags.FixedSize flag is used to verify the struct has a fixed size.
