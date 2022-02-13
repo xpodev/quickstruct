@@ -88,22 +88,22 @@ print("Fixed.size:", Fixed.size) # 16 (padding automatically added)
 print("Dynamic.size:", Dynamic.size) # -1 (dynamic size)
 
 print("Fixed.is_fixed_size:", Fixed.is_fixed_size) # True
-print("Dynamic.is_fixed_size:", Fixed.is_fixed_size) # False
+print("Dynamic.is_fixed_size:", Dynamic.is_fixed_size) # False
 
 print("Fixed.is_dynamic_size:", Fixed.is_dynamic_size) # False
-print("Dynamic.is_dynamic_size:", Fixed.is_dynamic_size) # True
+print("Dynamic.is_dynamic_size:", Dynamic.is_dynamic_size) # True
 
 print("Fixed.fields:", Fixed.fields) # [s: String[10], __pad_0__: Padding(2), x: i32]
 print("Dynamic.fields:", Dynamic.fields) # [s: String, x: i32]
 
-print("Fixed.aligment:", Fixed.aligment) # 16.
-print("Dynamic.aligment:", Dynamic.aligment) # -1 (no alignment because dynamic struct can't be aligned).
+print("Fixed.alignment:", Fixed.alignment) # 16.
+print("Dynamic.alignment:", Dynamic.alignment) # -1 (no alignment because dynamic struct can't be aligned).
 
 print("Fixed.is_final:", Fixed.is_final) # False
-print("Dynamic.is_final:", Fixed.is_final) # False
+print("Dynamic.is_final:", Dynamic.is_final) # False
 
 print("Fixed.is_protected:", Fixed.is_protected) # False
-print("Dynamic.is_protected:", Fixed.is_protected) # False
+print("Dynamic.is_protected:", Dynamic.is_protected) # False
 ```
 
 # Alignment
