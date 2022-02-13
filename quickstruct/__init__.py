@@ -2,7 +2,7 @@ from .common import *
 from .quickstruct import *
 from .struct_builder import StructFlags
 
-__version__ = '0.1.4'
+__version__ = '0.1.5'
 
 
 __all__ = [
@@ -12,6 +12,8 @@ __all__ = [
     'DataStruct',
 
     'String',
+    'Array',
+
     'i8',
     'i16',
     'i32',
@@ -26,5 +28,7 @@ __all__ = [
 
     'ptr',
     'ref',
-    'anyptr'
+    'anyptr',
+
+    'Padding'
 ]
