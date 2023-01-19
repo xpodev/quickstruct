@@ -61,7 +61,7 @@ class PackedStruct8(DataStruct, flags=StructFlags.Align8Bytes):
 
 
 def test_version():
-    assert __version__ == '0.2.0'
+    assert __version__ == '0.2.1'
 
 
 def test_struct_data():
