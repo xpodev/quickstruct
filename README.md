@@ -3,6 +3,13 @@
 QuickStruct is a small library written in Python that allows you to
 easily create C structs (and a bit more dynamic stuff) in Python!
 
+## Installation
+```
+pip install quickstruct
+```
+
+## Usage
+
 It's fairly easy to use
 ```py
 from quickstruct import *
